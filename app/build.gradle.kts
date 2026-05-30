@@ -58,4 +58,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.cio)
+    implementation(libs.tasks.genai)
 }
