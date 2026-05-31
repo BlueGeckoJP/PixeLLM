@@ -59,4 +59,5 @@ dependencies {
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.cio)
     implementation(libs.tasks.genai)
+    implementation(libs.kotlinx.serialization.json)
 }

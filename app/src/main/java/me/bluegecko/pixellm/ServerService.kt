@@ -3,6 +3,7 @@ package me.bluegecko.pixellm
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
@@ -10,6 +11,7 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
+import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -19,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.serialization.json.Json
 
 class ServerService : Service() {
     private lateinit var llmService: LocalLlmService
@@ -52,14 +56,47 @@ class ServerService : Service() {
                         loadDeferred.await()
 
                         val prompt = call.receiveText()
-                        val response = llmService.generate(prompt)
-                        call.respondText(response)
+                        val channel = Channel<String>(Channel.UNLIMITED)
+
+                        llmService.generateAsync(prompt, channel)
+                        call.respondTextWriter(ContentType.Text.EventStream) {
+                            for (chunk in channel) {
+                                write(
+                                    // @formatter:off
+                                    """data:{"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
+                                    // @formatter:on
+                                )
+
+                                flush()
+                            }
+
+                            write("data: [DONE]\n\n")
+                            flush()
+                        }
                     } catch (e: Throwable) {
                         call.respondText(
                             text = "Error: ${e.message}",
                             status = HttpStatusCode.ServiceUnavailable
                         )
                     }
+                }
+                get("/v1/models") {
+                    call.respondText(
+                        text = """
+                            {
+                                "object": "list",
+                                "data": [
+                                    {
+                                        "id": "pixellm-unknown",
+                                        "object": "model",
+                                        "created": 0,
+                                        "owned_by": "local"
+                                    }
+                                ]
+                            }
+                        """,
+                        contentType = ContentType.Application.Json
+                    )
                 }
             }
         }.start(wait = false)
