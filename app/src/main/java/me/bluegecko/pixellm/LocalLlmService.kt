@@ -5,6 +5,8 @@ import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import io.ktor.utils.io.core.Closeable
@@ -26,6 +28,10 @@ class LocalLlmService(
     suspend fun load() = withContext(Dispatchers.IO) {
         mutex.withLock {
             if (::engine.isInitialized) return@withLock
+
+            // Enable MTP
+            @OptIn(ExperimentalApi::class)
+            ExperimentalFlags.enableSpeculativeDecoding = true
 
             val preparedModelPath = prepareModel().absolutePath
             val engineConfig = EngineConfig(
