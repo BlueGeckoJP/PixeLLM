@@ -28,7 +28,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 class ServerService : Service() {
@@ -48,10 +47,10 @@ class ServerService : Service() {
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
                 get("/health") {
-                    val status = when {
-                        !loadDeferred.isCompleted -> "Loading"
-                        loadDeferred.isCancelled -> "Failed"
-                        else -> "Healthy"
+                    val status = when (LoadStatus.get()) {
+                        LoadStatus.Status.LOADING -> "LOADING"
+                        LoadStatus.Status.HEALTHY -> "HEALTHY"
+                        LoadStatus.Status.FAILED -> "FAILED"
                     }
 
                     call.respondText(status)
@@ -116,6 +115,18 @@ class ServerService : Service() {
 
         loadDeferred = serviceScope.async {
             llmService.load()
+        }
+
+        loadDeferred.invokeOnCompletion { cause ->
+            val status = when {
+                cause == null -> LoadStatus.Status.HEALTHY
+                loadDeferred.isCancelled -> LoadStatus.Status.FAILED
+                else -> LoadStatus.Status.FAILED
+            }
+
+            serviceScope.launch {
+                LoadStatus.set(status)
+            }
         }
 
     }

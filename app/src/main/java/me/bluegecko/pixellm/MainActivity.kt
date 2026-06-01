@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import me.bluegecko.pixellm.ui.theme.PixeLLMTheme
 
 class MainActivity : ComponentActivity() {
@@ -24,8 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             PixeLLMTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+                    AppScreen(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -35,17 +35,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun AppScreen(modifier: Modifier = Modifier) {
+    val status by LoadStatus.status.collectAsState()
+
     Text(
-        text = "Hello $name!",
+        text = when (status) {
+            LoadStatus.Status.LOADING -> "Loading model..."
+            LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
+            LoadStatus.Status.FAILED -> "Failed to load model."
+        },
         modifier = modifier
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    PixeLLMTheme {
-        Greeting("Android")
-    }
 }
