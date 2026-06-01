@@ -68,6 +68,8 @@ class LocalLlmService(
                         }
                     })
 
+                // Wait for generation to complete before closing the conversation
+                // Otherwise, a SIGSEGV occurs and the process crashes
                 done.await()
                 conversation.close()
                 Log.i("LLM", "Conversation closed")
