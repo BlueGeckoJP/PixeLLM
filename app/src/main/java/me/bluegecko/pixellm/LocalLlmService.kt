@@ -87,6 +87,9 @@ class LocalLlmService(
 
     }
 
+    // Copy the model into app-private storage before loading it
+    // LiteRT-LM/XNNPACK creates its weight cache next to the model file, and
+    // app processes cannot write that cache under /data/local/tmp
     private fun prepareModel(): File {
         Log.i("LLM", "Preparing model from path: $modelPath")
 
