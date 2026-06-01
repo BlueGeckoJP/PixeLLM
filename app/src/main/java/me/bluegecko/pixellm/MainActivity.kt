@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        startService(Intent(this, ServerService::class.java))
+        startForegroundService(Intent(this, ServerService::class.java))
 
         enableEdgeToEdge()
         setContent {

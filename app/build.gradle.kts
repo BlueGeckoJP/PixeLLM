@@ -58,6 +58,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.cio)
-    implementation(libs.tasks.genai)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.litertlm.android)
 }

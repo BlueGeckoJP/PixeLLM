@@ -1,8 +1,13 @@
 package me.bluegecko.pixellm
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.IBinder
+import androidx.core.app.NotificationCompat
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.cio.CIO
@@ -22,6 +27,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 class ServerService : Service() {
@@ -34,11 +41,9 @@ class ServerService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        llmService = LocalLlmService(this, "/data/local/tmp/llm/model.task")
+        this.startForeground()
 
-        loadDeferred = serviceScope.async {
-            llmService.load()
-        }
+        llmService = LocalLlmService(this, "/data/local/tmp/llm/model.litertlm")
 
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
@@ -58,20 +63,27 @@ class ServerService : Service() {
                         val prompt = call.receiveText()
                         val channel = Channel<String>(Channel.UNLIMITED)
 
-                        llmService.generateAsync(prompt, channel)
                         call.respondTextWriter(ContentType.Text.EventStream) {
-                            for (chunk in channel) {
-                                write(
-                                    // @formatter:off
-                                    """data:{"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
-                                    // @formatter:on
-                                )
-
-                                flush()
+                            val generationJob = launch {
+                                llmService.generateAsync(prompt, channel)
                             }
 
-                            write("data: [DONE]\n\n")
-                            flush()
+                            try {
+                                for (chunk in channel) {
+                                    write(
+                                        // @formatter:off
+                                        """data:{"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
+                                        // @formatter:on
+                                    )
+
+                                    flush()
+                                }
+
+                                write("data: [DONE]\n\n")
+                                flush()
+                            } finally {
+                                generationJob.cancel()
+                            }
                         }
                     } catch (e: Throwable) {
                         call.respondText(
@@ -100,6 +112,12 @@ class ServerService : Service() {
                 }
             }
         }.start(wait = false)
+
+
+        loadDeferred = serviceScope.async {
+            llmService.load()
+        }
+
     }
 
     override fun onDestroy() {
@@ -111,4 +129,21 @@ class ServerService : Service() {
     }
 
     override fun onBind(p0: Intent?): IBinder? = null
+
+    private fun startForeground() {
+        val notificationChannel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "PixeLLM Server Service",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(notificationChannel)
+
+        val notification: Notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID).setSmallIcon(R.mipmap.ic_launcher).setContentTitle("PixeLLM server running").setContentText("Tap to open app").setOngoing(true).build()
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    }
+
+    companion object {
+        private const val NOTIFICATION_CHANNEL_ID = "pixellm_server_channel"
+        private const val NOTIFICATION_ID = 1
+    }
 }
