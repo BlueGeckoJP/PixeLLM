@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -36,6 +37,7 @@ class ServerService : Service() {
     private lateinit var loadDeferred: Deferred<Unit>
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? =
         null
+    private val json = Json { ignoreUnknownKeys = true }
 
     override fun onCreate() {
         super.onCreate()
@@ -59,12 +61,17 @@ class ServerService : Service() {
                     try {
                         loadDeferred.await()
 
-                        val prompt = call.receiveText()
+                        val rawRequest = call.receiveText()
+                        val request = json.decodeFromString<ChatCompletions>(rawRequest)
+                        val messages = request.messages.joinToString(separator = "\n") { "${it.role}: ${it.content.toString()}" }
+                        Log.d("ServerService", "Received raw request: $rawRequest")
+                        Log.d("ServerService", "Parsed object: $request")
+                        Log.d("ServerService", "Received prompt: $messages")
                         val channel = Channel<String>(Channel.UNLIMITED)
 
                         call.respondTextWriter(ContentType.Text.EventStream) {
                             val generationJob = launch {
-                                llmService.generateAsync(prompt, channel)
+                                llmService.generateAsync(messages, channel)
                             }
 
                             try {
@@ -85,6 +92,7 @@ class ServerService : Service() {
                             }
                         }
                     } catch (e: Throwable) {
+                        Log.e("ServerService", "Error handling request", e)
                         call.respondText(
                             text = "Error: ${e.message}",
                             status = HttpStatusCode.ServiceUnavailable
