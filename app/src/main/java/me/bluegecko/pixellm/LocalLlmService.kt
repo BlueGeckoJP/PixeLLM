@@ -56,23 +56,23 @@ class LocalLlmService(
                 val done = CompletableDeferred<Unit>()
 
                 conversation.sendMessageAsync(prompt, object : MessageCallback {
-                        override fun onMessage(message: Message) {
-                            Log.d("LLM", "Received message: ${message.contents}")
-                            channel.trySend(message.contents.toString())
-                        }
+                    override fun onMessage(message: Message) {
+                        Log.d("LLM", "Received message: ${message.contents}")
+                        channel.trySend(message.contents.toString())
+                    }
 
-                        override fun onDone() {
-                            Log.d("LLM", "Generation done")
-                            channel.close()
-                            done.complete(Unit)
-                        }
+                    override fun onDone() {
+                        Log.d("LLM", "Generation done")
+                        channel.close()
+                        done.complete(Unit)
+                    }
 
-                        override fun onError(throwable: Throwable) {
-                            Log.e("LLM", "Generation error", throwable)
-                            channel.close(throwable)
-                            done.completeExceptionally(throwable)
-                        }
-                    })
+                    override fun onError(throwable: Throwable) {
+                        Log.e("LLM", "Generation error", throwable)
+                        channel.close(throwable)
+                        done.completeExceptionally(throwable)
+                    }
+                })
 
                 // Wait for generation to complete before closing the conversation
                 // Otherwise, a SIGSEGV occurs and the process crashes

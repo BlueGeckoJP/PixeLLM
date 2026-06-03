@@ -29,10 +29,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 class ServerService : Service() {
-    private lateinit var llmService: LocalLlmService
+    private lateinit var llmManager: LlmManager
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var loadDeferred: Deferred<Unit>
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? =
@@ -44,12 +45,18 @@ class ServerService : Service() {
 
         this.startForeground()
 
-        llmService = LocalLlmService(this, "/data/local/tmp/llm/model.litertlm")
+        val model = LlmManager.ModelInfo("pixellm-unknown", "/data/local/tmp/llm/model.litertlm")
+        llmManager = LlmManager(this)
+        llmManager.addModel(model)
+
+        loadDeferred = serviceScope.async {
+            llmManager.loadModel(model)
+        }
 
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
                 get("/health") {
-                    val status = when (LoadStatus.get()) {
+                    val status = when (LoadStatus.status.value) {
                         LoadStatus.Status.LOADING -> "LOADING"
                         LoadStatus.Status.HEALTHY -> "HEALTHY"
                         LoadStatus.Status.FAILED -> "FAILED"
@@ -63,7 +70,8 @@ class ServerService : Service() {
 
                         val rawRequest = call.receiveText()
                         val request = json.decodeFromString<ChatCompletions>(rawRequest)
-                        val messages = request.messages.joinToString(separator = "\n") { "${it.role}: ${it.content.toString()}" }
+                        val messages =
+                            request.messages.joinToString(separator = "\n") { "${it.role}: ${it.content.toString()}" }
                         Log.d("ServerService", "Received raw request: $rawRequest")
                         Log.d("ServerService", "Parsed object: $request")
                         Log.d("ServerService", "Received prompt: $messages")
@@ -71,7 +79,7 @@ class ServerService : Service() {
 
                         call.respondTextWriter(ContentType.Text.EventStream) {
                             val generationJob = launch {
-                                llmService.generateAsync(messages, channel)
+                                llmManager.generateAsync(messages, channel)
                             }
 
                             try {
@@ -100,17 +108,26 @@ class ServerService : Service() {
                     }
                 }
                 get("/v1/models") {
+                    val currentModel = llmManager.currentModel()
+                    val modelObj = if (currentModel == null) {
+                        "{}"
+                    } else {
+                        """
+                                    {
+                                        "id": "${currentModel.name}",
+                                        "object": "model",
+                                        "created": 0,
+                                        "owned_by": "local"
+                                    }
+                        """
+                    }
+
                     call.respondText(
                         text = """
                             {
                                 "object": "list",
                                 "data": [
-                                    {
-                                        "id": "pixellm-unknown",
-                                        "object": "model",
-                                        "created": 0,
-                                        "owned_by": "local"
-                                    }
+                                    $modelObj
                                 ]
                             }
                         """,
@@ -120,30 +137,23 @@ class ServerService : Service() {
             }
         }.start(wait = false)
 
-
-        loadDeferred = serviceScope.async {
-            llmService.load()
-        }
-
         loadDeferred.invokeOnCompletion { cause ->
             val status = when {
                 cause == null -> LoadStatus.Status.HEALTHY
-                loadDeferred.isCancelled -> LoadStatus.Status.FAILED
                 else -> LoadStatus.Status.FAILED
             }
 
-            serviceScope.launch {
-                LoadStatus.set(status)
-            }
+            LoadStatus.set(status)
         }
-
     }
 
     override fun onDestroy() {
         server?.stop(1000, 2000)
         server = null
+        runBlocking {
+            llmManager.unloadModel()
+        }
         serviceScope.cancel()
-        llmService.close()
         super.onDestroy()
     }
 
@@ -155,10 +165,18 @@ class ServerService : Service() {
             "PixeLLM Server Service",
             NotificationManager.IMPORTANCE_LOW
         )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(notificationChannel)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            notificationChannel
+        )
 
-        val notification: Notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID).setSmallIcon(R.mipmap.ic_launcher).setContentTitle("PixeLLM server running").setContentText("Tap to open app").setOngoing(true).build()
-        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        val notification: Notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher).setContentTitle("PixeLLM server running")
+            .setContentText("Tap to open app").setOngoing(true).build()
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        )
     }
 
     companion object {
