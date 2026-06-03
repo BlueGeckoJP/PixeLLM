@@ -86,7 +86,7 @@ class ServerService : Service() {
                                 for (chunk in channel) {
                                     write(
                                         // @formatter:off
-                                        """data:{"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
+                                        """data: {"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
                                         // @formatter:on
                                     )
 
