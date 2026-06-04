@@ -45,7 +45,8 @@ class ServerService : Service() {
 
         this.startForeground()
 
-        llmManager = LlmManager(this)
+        val app = application as PixeLLMApplication
+        llmManager = app.llmManager
 
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
@@ -103,13 +104,13 @@ class ServerService : Service() {
                     }
                 }
                 get("/v1/models") {
-                    val currentModel = llmManager.loadedModel()
-                    val modelObj = if (currentModel == null) {
+                    val loadedModel = llmManager.loadedModel.value
+                    val modelObj = if (loadedModel == null) {
                         "{}"
                     } else {
                         """
                                     {
-                                        "id": "${currentModel.name}",
+                                        "id": "${loadedModel.name}",
                                         "object": "model",
                                         "created": 0,
                                         "owned_by": "local"

@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
     val status by LoadStatus.status.collectAsState()
+    val loadedModel by app.llmManager.loadedModel.collectAsState()
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
        Column {
@@ -66,7 +67,6 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
 
            SingleFilePicker(app.applicationContext)
 
-           val loadedModel = app.llmManager.loadedModel()
            Text(text = "Loaded model: ${loadedModel?.name ?: "None"}")
        }
     }
