@@ -35,7 +35,7 @@ import kotlinx.serialization.json.Json
 class ServerService : Service() {
     private lateinit var llmManager: LlmManager
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private lateinit var loadDeferred: Deferred<Unit>
+    private var loadDeferred: Deferred<Unit>? = null
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? =
         null
     private val json = Json { ignoreUnknownKeys = true }
@@ -45,13 +45,7 @@ class ServerService : Service() {
 
         this.startForeground()
 
-        val model = LlmManager.ModelInfo("pixellm-unknown", "/data/local/tmp/llm/model.litertlm")
         llmManager = LlmManager(this)
-        llmManager.addModel(model)
-
-        loadDeferred = serviceScope.async {
-            llmManager.loadModel(model)
-        }
 
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
@@ -66,7 +60,7 @@ class ServerService : Service() {
                 }
                 post("/v1/chat/completions") {
                     try {
-                        loadDeferred.await()
+                        loadDeferred?.await()
 
                         val rawRequest = call.receiveText()
                         val request = json.decodeFromString<ChatCompletions>(rawRequest)
@@ -108,7 +102,7 @@ class ServerService : Service() {
                     }
                 }
                 get("/v1/models") {
-                    val currentModel = llmManager.currentModel()
+                    val currentModel = llmManager.loadedModel()
                     val modelObj = if (currentModel == null) {
                         "{}"
                     } else {
@@ -136,15 +130,36 @@ class ServerService : Service() {
                 }
             }
         }.start(wait = false)
+    }
 
-        loadDeferred.invokeOnCompletion { cause ->
-            val status = when {
-                cause == null -> LoadStatus.Status.HEALTHY
-                else -> LoadStatus.Status.FAILED
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            "LOAD_MODEL" -> {
+                val modelName = intent.getStringExtra("MODEL_NAME") ?: "unknown_model"
+                val modelUri = intent.getStringExtra("MODEL_URI")
+                if (modelUri != null) {
+                    loadDeferred = serviceScope.async {
+                        llmManager.loadModel(LlmManager.ModelInfo(name = modelName, uri = modelUri))
+                    }
+
+                    loadDeferred?.invokeOnCompletion { cause ->
+                        val status = when {
+                            cause == null -> LoadStatus.Status.HEALTHY
+                            else -> {
+                                Log.e("ServerService", "Failed to load model", cause)
+                                LoadStatus.Status.FAILED
+                            }
+                        }
+
+                        LoadStatus.set(status)
+                    }
+                } else {
+                    Log.e("ServerService", "MODEL_PATH extra is missing in LOAD_MODEL intent")
+                }
             }
-
-            LoadStatus.set(status)
         }
+
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

@@ -17,10 +17,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.core.net.toUri
 
 class LocalLlmService(
     private val context: Context,
-    private val modelPath: String
+    private val modelUri: String
 ) : Closeable {
     private val mutex = Mutex()
     private lateinit var engine: Engine
@@ -91,24 +92,16 @@ class LocalLlmService(
     // LiteRT-LM/XNNPACK creates its weight cache next to the model file, and
     // app processes cannot write that cache under /data/local/tmp
     private fun prepareModel(): File {
-        Log.i("LLM", "Preparing model from path: $modelPath")
+        Log.i("LLM", "Preparing model from URI: $modelUri")
 
-        val modelFile = File(modelPath)
+        val modelUri = modelUri.toUri()
         val modelDir = File(context.filesDir, "llm").apply { mkdirs() }
-        val target = File(modelDir, modelFile.name.ifBlank { "model.litertlm" })
-
-        if (target.exists() && (!modelFile.exists() || target.length() == modelFile.length())) {
-            return target
-        }
-
-        require(modelFile.exists()) {
-            "Model file does not exist: $modelPath"
-        }
+        val target = File(modelDir, "model.litertlm")
 
         val tmp = File(modelDir, "${target.name}.tmp")
-        modelFile.inputStream().use { input ->
+        context.contentResolver.openInputStream(modelUri).use { input ->
             tmp.outputStream().use { output ->
-                input.copyTo(output, bufferSize = 1024 * 1024)
+                input?.copyTo(output, bufferSize = 1024 * 1024)
             }
         }
 
