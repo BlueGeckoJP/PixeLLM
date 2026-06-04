@@ -39,7 +39,7 @@ class LlmManager(private val context: Context) {
             llmService?.close()
             llmService = null
             loadedModel = null
-            LoadStatus.set(LoadStatus.Status.LOADING)
+            LoadStatus.set(LoadStatus.Status.UNLOADED)
         }
     }
 

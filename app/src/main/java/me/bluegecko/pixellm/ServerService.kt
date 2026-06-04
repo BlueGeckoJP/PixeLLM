@@ -51,6 +51,7 @@ class ServerService : Service() {
             routing {
                 get("/health") {
                     val status = when (LoadStatus.status.value) {
+                        LoadStatus.Status.UNLOADED -> "UNLOADED"
                         LoadStatus.Status.LOADING -> "LOADING"
                         LoadStatus.Status.HEALTHY -> "HEALTHY"
                         LoadStatus.Status.FAILED -> "FAILED"

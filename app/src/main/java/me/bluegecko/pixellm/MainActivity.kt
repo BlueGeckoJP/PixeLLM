@@ -56,6 +56,7 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
        Column {
            Text(
                text = when (status) {
+                   LoadStatus.Status.UNLOADED -> "No model loaded."
                    LoadStatus.Status.LOADING -> "Loading model..."
                    LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
                    LoadStatus.Status.FAILED -> "Failed to load model."
