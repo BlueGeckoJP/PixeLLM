@@ -2,6 +2,7 @@ package me.bluegecko.pixellm
 
 import android.content.Context
 import android.util.Log
+import androidx.core.net.toUri
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -17,7 +18,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
-import androidx.core.net.toUri
 
 class LocalLlmService(
     private val context: Context,

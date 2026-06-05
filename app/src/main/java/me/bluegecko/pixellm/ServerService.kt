@@ -137,12 +137,19 @@ class ServerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             "LOAD_MODEL" -> {
-                val modelFilename = intent.getStringExtra("MODEL_FILENAME") ?: "unknown_model.litertlm"
+                val modelFilename =
+                    intent.getStringExtra("MODEL_FILENAME") ?: "unknown_model.litertlm"
                 val modelSize = intent.getLongExtra("MODEL_SIZE", -1L)
                 val modelUri = intent.getStringExtra("MODEL_URI")
                 if (modelUri != null) {
                     loadDeferred = serviceScope.async {
-                        llmManager.loadModel(LlmManager.ModelInfo(filename = modelFilename, uri = modelUri, size = modelSize))
+                        llmManager.loadModel(
+                            LlmManager.ModelInfo(
+                                filename = modelFilename,
+                                uri = modelUri,
+                                size = modelSize
+                            )
+                        )
                     }
 
                     loadDeferred?.invokeOnCompletion { cause ->

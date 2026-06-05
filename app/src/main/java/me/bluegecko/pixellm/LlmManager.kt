@@ -21,7 +21,10 @@ class LlmManager(private val context: Context) {
     private var llmService: LocalLlmService? = null
 
     suspend fun loadModel(modelInfo: ModelInfo) {
-        Log.i("LlmManager", "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes")
+        Log.i(
+            "LlmManager",
+            "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes"
+        )
         LoadStatus.set(LoadStatus.Status.LOADING)
 
         mutex.withLock {

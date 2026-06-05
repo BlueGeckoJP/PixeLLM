@@ -60,22 +60,24 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
     val loadedModel by app.llmManager.loadedModel.collectAsState()
 
     Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize()) {
-       Column {
-           Text(
-               text = when (status) {
-                   LoadStatus.Status.UNLOADED -> "No model loaded."
-                   LoadStatus.Status.LOADING -> "Loading model..."
-                   LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
-                   LoadStatus.Status.FAILED -> "Failed to load model."
-               },
-               modifier = Modifier.padding(8.dp)
-           )
+        Column {
+            Text(
+                text = when (status) {
+                    LoadStatus.Status.UNLOADED -> "No model loaded."
+                    LoadStatus.Status.LOADING -> "Loading model..."
+                    LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
+                    LoadStatus.Status.FAILED -> "Failed to load model."
+                },
+                modifier = Modifier.padding(8.dp)
+            )
 
-           SingleFilePicker(app.applicationContext, modifier = Modifier.padding(8.dp))
+            SingleFilePicker(app.applicationContext, modifier = Modifier.padding(8.dp))
 
-           Text(text = "Loaded model: ${loadedModel?.filename ?: "None"}",
-               modifier = Modifier.padding(8.dp))
-       }
+            Text(
+                text = "Loaded model: ${loadedModel?.filename ?: "None"}",
+                modifier = Modifier.padding(8.dp)
+            )
+        }
     }
 }
 
@@ -110,8 +112,12 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
 }
 
 fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
-    return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME,
-        OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+    return context.contentResolver.query(
+        uri, arrayOf(
+            OpenableColumns.DISPLAY_NAME,
+            OpenableColumns.SIZE
+        ), null, null, null
+    )?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
 
