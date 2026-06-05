@@ -92,7 +92,12 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
 
             val uriMetadata = getUriMetadata(context, uri)
 
-            if (uriMetadata != null && uriMetadata.extension != "litertlm") {
+            if (uriMetadata == null) {
+                Log.e("SingleFilePicker", "Failed to retrieve metadata for selected file: $uri")
+                return@rememberLauncherForActivityResult
+            }
+
+            if (uriMetadata.extension != "litertlm") {
                 Log.e("SingleFilePicker", "Selected file does not have \".litertlm\" extension: ${uriMetadata.filename}")
                 return@rememberLauncherForActivityResult
             }
@@ -100,8 +105,8 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
             val intent = Intent(context, ServerService::class.java).apply {
                 action = "LOAD_MODEL"
                 putExtra("MODEL_URI", uri.toString())
-                putExtra("MODEL_FILENAME", uriMetadata?.filename)
-                putExtra("MODEL_SIZE", uriMetadata?.size)
+                putExtra("MODEL_FILENAME", uriMetadata.filename)
+                putExtra("MODEL_SIZE", uriMetadata.size)
                 data = uri
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
