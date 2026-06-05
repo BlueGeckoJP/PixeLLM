@@ -1,6 +1,7 @@
 package me.bluegecko.pixellm
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,33 +10,35 @@ import kotlinx.coroutines.sync.withLock
 
 class LlmManager(private val context: Context) {
     data class ModelInfo(
-        val name: String,
-        val path: String
+        val filename: String,
+        val uri: String,
+        val size: Long
     )
 
-    private val mutex = Mutex()
-    private val _allModels = MutableStateFlow(listOf<ModelInfo>())
-    val allModels: StateFlow<List<ModelInfo>> = _allModels
+    class ModelAlreadyLoadedException(message: String) : Exception(message)
 
-    private var currentModel: ModelInfo? = null
+    private val mutex = Mutex()
+    private val _loadedModel: MutableStateFlow<ModelInfo?> = MutableStateFlow(null)
+    val loadedModel: StateFlow<ModelInfo?> = _loadedModel
     private var llmService: LocalLlmService? = null
 
     suspend fun loadModel(modelInfo: ModelInfo) {
-        if (!allModels.value.contains(modelInfo)) {
-            throw IllegalArgumentException("Model ${modelInfo.name} not found in available models.")
-        }
-
-        LoadStatus.set(LoadStatus.Status.LOADING)
-
         mutex.withLock {
-            if (currentModel != null) {
-                throw IllegalStateException("A model is already loaded. Unload it before loading a new one.")
+            Log.i(
+                "LlmManager",
+                "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes"
+            )
+
+            if (loadedModel.value != null) {
+                throw ModelAlreadyLoadedException("A model is already loaded. Unload it before loading a new one.")
             }
 
-            val service = LocalLlmService(context, modelInfo.path)
+            LoadStatus.set(LoadStatus.Status.LOADING)
+
+            val service = LocalLlmService(context, modelInfo)
             service.load()
 
-            currentModel = modelInfo
+            _loadedModel.value = modelInfo
             llmService = service
         }
 
@@ -45,8 +48,8 @@ class LlmManager(private val context: Context) {
         mutex.withLock {
             llmService?.close()
             llmService = null
-            currentModel = null
-            LoadStatus.set(LoadStatus.Status.LOADING)
+            _loadedModel.value = null
+            LoadStatus.set(LoadStatus.Status.UNLOADED)
         }
     }
 
@@ -56,13 +59,4 @@ class LlmManager(private val context: Context) {
         service.generateAsync(prompt, channel)
     }
 
-    fun addModel(modelInfo: ModelInfo) {
-        _allModels.value += modelInfo
-    }
-
-    fun removeModel(modelInfo: ModelInfo) {
-        _allModels.value -= modelInfo
-    }
-
-    fun currentModel(): ModelInfo? = currentModel
 }

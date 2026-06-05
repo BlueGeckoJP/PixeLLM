@@ -2,6 +2,7 @@ package me.bluegecko.pixellm
 
 import android.content.Context
 import android.util.Log
+import androidx.core.net.toUri
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -20,7 +21,7 @@ import java.io.File
 
 class LocalLlmService(
     private val context: Context,
-    private val modelPath: String
+    private val modelInfo: LlmManager.ModelInfo
 ) : Closeable {
     private val mutex = Mutex()
     private lateinit var engine: Engine
@@ -91,22 +92,22 @@ class LocalLlmService(
     // LiteRT-LM/XNNPACK creates its weight cache next to the model file, and
     // app processes cannot write that cache under /data/local/tmp
     private fun prepareModel(): File {
-        Log.i("LLM", "Preparing model from path: $modelPath")
+        Log.i("LLM", "Preparing model from URI: ${modelInfo.uri}")
 
-        val modelFile = File(modelPath)
+        val modelUri = modelInfo.uri.toUri()
         val modelDir = File(context.filesDir, "llm").apply { mkdirs() }
-        val target = File(modelDir, modelFile.name.ifBlank { "model.litertlm" })
+        val target = File(modelDir, modelInfo.filename)
 
-        if (target.exists() && (!modelFile.exists() || target.length() == modelFile.length())) {
+        if (target.exists() && target.length() == modelInfo.size) {
+            Log.i("LLM", "Model already prepared at: ${target.absolutePath}")
             return target
         }
 
-        require(modelFile.exists()) {
-            "Model file does not exist: $modelPath"
-        }
-
         val tmp = File(modelDir, "${target.name}.tmp")
-        modelFile.inputStream().use { input ->
+        val input = checkNotNull(context.contentResolver.openInputStream(modelUri)) {
+            "Could not open input stream for model URI: ${modelInfo.uri}"
+        }
+        input.use {
             tmp.outputStream().use { output ->
                 input.copyTo(output, bufferSize = 1024 * 1024)
             }

@@ -35,7 +35,7 @@ import kotlinx.serialization.json.Json
 class ServerService : Service() {
     private lateinit var llmManager: LlmManager
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private lateinit var loadDeferred: Deferred<Unit>
+    private var loadDeferred: Deferred<Unit>? = null
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? =
         null
     private val json = Json { ignoreUnknownKeys = true }
@@ -45,18 +45,14 @@ class ServerService : Service() {
 
         this.startForeground()
 
-        val model = LlmManager.ModelInfo("pixellm-unknown", "/data/local/tmp/llm/model.litertlm")
-        llmManager = LlmManager(this)
-        llmManager.addModel(model)
-
-        loadDeferred = serviceScope.async {
-            llmManager.loadModel(model)
-        }
+        val app = application as PixeLLMApplication
+        llmManager = app.llmManager
 
         server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
             routing {
                 get("/health") {
                     val status = when (LoadStatus.status.value) {
+                        LoadStatus.Status.UNLOADED -> "UNLOADED"
                         LoadStatus.Status.LOADING -> "LOADING"
                         LoadStatus.Status.HEALTHY -> "HEALTHY"
                         LoadStatus.Status.FAILED -> "FAILED"
@@ -66,7 +62,7 @@ class ServerService : Service() {
                 }
                 post("/v1/chat/completions") {
                     try {
-                        loadDeferred.await()
+                        loadDeferred?.await()
 
                         val rawRequest = call.receiveText()
                         val request = json.decodeFromString<ChatCompletions>(rawRequest)
@@ -108,13 +104,13 @@ class ServerService : Service() {
                     }
                 }
                 get("/v1/models") {
-                    val currentModel = llmManager.currentModel()
-                    val modelObj = if (currentModel == null) {
+                    val loadedModel = llmManager.loadedModel.value
+                    val modelObj = if (loadedModel == null) {
                         "{}"
                     } else {
                         """
                                     {
-                                        "id": "${currentModel.name}",
+                                        "id": "${loadedModel.filename}",
                                         "object": "model",
                                         "created": 0,
                                         "owned_by": "local"
@@ -136,15 +132,49 @@ class ServerService : Service() {
                 }
             }
         }.start(wait = false)
+    }
 
-        loadDeferred.invokeOnCompletion { cause ->
-            val status = when {
-                cause == null -> LoadStatus.Status.HEALTHY
-                else -> LoadStatus.Status.FAILED
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            "LOAD_MODEL" -> {
+                val modelFilename =
+                    intent.getStringExtra("MODEL_FILENAME") ?: "unknown_model.litertlm"
+                val modelSize = intent.getLongExtra("MODEL_SIZE", -1L)
+                val modelUri = intent.getStringExtra("MODEL_URI")
+                if (modelUri != null) {
+                    loadDeferred = serviceScope.async {
+                        llmManager.loadModel(
+                            LlmManager.ModelInfo(
+                                filename = modelFilename,
+                                uri = modelUri,
+                                size = modelSize
+                            )
+                        )
+                    }
+
+                    loadDeferred?.invokeOnCompletion { cause ->
+                        val status = when {
+                            cause == null -> LoadStatus.Status.HEALTHY
+                            cause is LlmManager.ModelAlreadyLoadedException -> {
+                                Log.w("ServerService", "Model already loaded", cause)
+                                loadDeferred = null
+                                LoadStatus.Status.HEALTHY
+                            }
+                            else -> {
+                                Log.e("ServerService", "Failed to load model", cause)
+                                LoadStatus.Status.FAILED
+                            }
+                        }
+
+                        LoadStatus.set(status)
+                    }
+                } else {
+                    Log.e("ServerService", "MODEL_URI extra is missing in LOAD_MODEL intent")
+                }
             }
-
-            LoadStatus.set(status)
         }
+
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
