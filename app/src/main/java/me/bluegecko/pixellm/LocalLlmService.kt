@@ -104,9 +104,12 @@ class LocalLlmService(
         }
 
         val tmp = File(modelDir, "${target.name}.tmp")
-        context.contentResolver.openInputStream(modelUri).use { input ->
+        val input = checkNotNull(context.contentResolver.openInputStream(modelUri)) {
+            "Could not open input stream for model URI: ${modelInfo.uri}"
+        }
+        input.use {
             tmp.outputStream().use { output ->
-                input?.copyTo(output, bufferSize = 1024 * 1024)
+                input.copyTo(output, bufferSize = 1024 * 1024)
             }
         }
 
