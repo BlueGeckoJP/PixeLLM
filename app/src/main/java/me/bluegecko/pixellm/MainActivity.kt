@@ -124,8 +124,8 @@ fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
             OpenableColumns.SIZE
         ), null, null, null
     )?.use { cursor ->
-        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it != -1 } ?: return@use null
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE).takeIf { it != -1 } ?: return@use null
 
         if (cursor.moveToFirst()) {
             val rawName = cursor.getString(nameIndex)
