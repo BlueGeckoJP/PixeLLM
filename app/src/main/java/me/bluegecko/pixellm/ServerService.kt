@@ -169,7 +169,7 @@ class ServerService : Service() {
                         LoadStatus.set(status)
                     }
                 } else {
-                    Log.e("ServerService", "MODEL_PATH extra is missing in LOAD_MODEL intent")
+                    Log.e("ServerService", "MODEL_URI extra is missing in LOAD_MODEL intent")
                 }
             }
         }
