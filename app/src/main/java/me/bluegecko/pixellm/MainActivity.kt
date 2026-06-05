@@ -27,6 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import me.bluegecko.pixellm.ui.theme.PixeLLMTheme
 
+data class URIMetadata(
+    val filename: String,
+    val size: Long
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +73,7 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
 
            SingleFilePicker(app.applicationContext, modifier = Modifier.padding(8.dp))
 
-           Text(text = "Loaded model: ${loadedModel?.name ?: "None"}",
+           Text(text = "Loaded model: ${loadedModel?.filename ?: "None"}",
                modifier = Modifier.padding(8.dp))
        }
     }
@@ -82,10 +87,13 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
         uri?.let {
             Log.d("SingleFilePicker", "Selected file: $uri")
 
+            val uriMetadata = getUriMetadata(context, uri)
+
             val intent = Intent(context, ServerService::class.java).apply {
                 action = "LOAD_MODEL"
                 putExtra("MODEL_URI", uri.toString())
-                putExtra("MODEL_NAME", getUriFileName(context, uri))
+                putExtra("MODEL_FILENAME", uriMetadata?.filename)
+                putExtra("MODEL_SIZE", uriMetadata?.size)
                 data = uri
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -101,11 +109,16 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
     }
 }
 
-fun getUriFileName(context: Context, uri: Uri): String? {
-    return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
+    return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME,
+        OpenableColumns.SIZE), null, null, null)?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (nameIndex >= 0 && cursor.moveToFirst()) {
-            cursor.getString(nameIndex)
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+
+        if (cursor.moveToFirst()) {
+            val name = cursor.getString(nameIndex)
+            val size = cursor.getLong(sizeIndex)
+            URIMetadata(name, size)
         } else {
             null
         }

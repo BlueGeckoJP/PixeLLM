@@ -21,7 +21,7 @@ import androidx.core.net.toUri
 
 class LocalLlmService(
     private val context: Context,
-    private val modelUri: String
+    private val modelInfo: LlmManager.ModelInfo
 ) : Closeable {
     private val mutex = Mutex()
     private lateinit var engine: Engine
@@ -92,11 +92,16 @@ class LocalLlmService(
     // LiteRT-LM/XNNPACK creates its weight cache next to the model file, and
     // app processes cannot write that cache under /data/local/tmp
     private fun prepareModel(): File {
-        Log.i("LLM", "Preparing model from URI: $modelUri")
+        Log.i("LLM", "Preparing model from URI: ${modelInfo.uri}")
 
-        val modelUri = modelUri.toUri()
+        val modelUri = modelInfo.uri.toUri()
         val modelDir = File(context.filesDir, "llm").apply { mkdirs() }
-        val target = File(modelDir, "model.litertlm")
+        val target = File(modelDir, modelInfo.filename)
+
+        if (target.exists() && target.length() == modelInfo.size) {
+            Log.i("LLM", "Model already prepared at: ${target.absolutePath}")
+            return target
+        }
 
         val tmp = File(modelDir, "${target.name}.tmp")
         context.contentResolver.openInputStream(modelUri).use { input ->

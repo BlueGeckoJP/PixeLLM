@@ -10,8 +10,9 @@ import kotlinx.coroutines.sync.withLock
 
 class LlmManager(private val context: Context) {
     data class ModelInfo(
-        val name: String,
-        val uri: String
+        val filename: String,
+        val uri: String,
+        val size: Long
     )
 
     private val mutex = Mutex()
@@ -20,7 +21,7 @@ class LlmManager(private val context: Context) {
     private var llmService: LocalLlmService? = null
 
     suspend fun loadModel(modelInfo: ModelInfo) {
-        Log.i("LlmManager", "Loading model: ${modelInfo.name} from URI: ${modelInfo.uri}")
+        Log.i("LlmManager", "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes")
         LoadStatus.set(LoadStatus.Status.LOADING)
 
         mutex.withLock {
@@ -28,7 +29,7 @@ class LlmManager(private val context: Context) {
                 throw IllegalStateException("A model is already loaded. Unload it before loading a new one.")
             }
 
-            val service = LocalLlmService(context, modelInfo.uri)
+            val service = LocalLlmService(context, modelInfo)
             service.load()
 
             _loadedModel.value = modelInfo
