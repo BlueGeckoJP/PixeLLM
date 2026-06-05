@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import me.bluegecko.pixellm.ui.theme.PixeLLMTheme
 
@@ -53,7 +54,7 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
     val status by LoadStatus.status.collectAsState()
     val loadedModel by app.llmManager.loadedModel.collectAsState()
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize()) {
        Column {
            Text(
                text = when (status) {
@@ -62,18 +63,19 @@ fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
                    LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
                    LoadStatus.Status.FAILED -> "Failed to load model."
                },
-               modifier = modifier
+               modifier = Modifier.padding(8.dp)
            )
 
-           SingleFilePicker(app.applicationContext)
+           SingleFilePicker(app.applicationContext, modifier = Modifier.padding(8.dp))
 
-           Text(text = "Loaded model: ${loadedModel?.name ?: "None"}")
+           Text(text = "Loaded model: ${loadedModel?.name ?: "None"}",
+               modifier = Modifier.padding(8.dp))
        }
     }
 }
 
 @Composable
-fun SingleFilePicker(context: Context) {
+fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -94,7 +96,7 @@ fun SingleFilePicker(context: Context) {
 
     Button(onClick = {
         launcher.launch("*/*")
-    }) {
+    }, modifier = modifier) {
         Text("Pick a model file")
     }
 }
