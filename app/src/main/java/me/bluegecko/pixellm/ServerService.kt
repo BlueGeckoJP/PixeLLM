@@ -155,6 +155,11 @@ class ServerService : Service() {
                     loadDeferred?.invokeOnCompletion { cause ->
                         val status = when {
                             cause == null -> LoadStatus.Status.HEALTHY
+                            cause is LlmManager.ModelAlreadyLoadedException -> {
+                                Log.w("ServerService", "Model already loaded", cause)
+                                loadDeferred = null
+                                LoadStatus.Status.HEALTHY
+                            }
                             else -> {
                                 Log.e("ServerService", "Failed to load model", cause)
                                 LoadStatus.Status.FAILED

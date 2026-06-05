@@ -123,6 +123,8 @@ fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
 
         if (cursor.moveToFirst()) {
             val name = cursor.getString(nameIndex)
+                .replace("^[^a-zA-Z0-9]".toRegex(), "_")
+                .replace("[^a-zA-Z0-9._-]".toRegex(), "_")
             val size = cursor.getLong(sizeIndex)
             URIMetadata(name, size)
         } else {

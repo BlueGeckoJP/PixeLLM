@@ -15,22 +15,25 @@ class LlmManager(private val context: Context) {
         val size: Long
     )
 
+    class ModelAlreadyLoadedException(message: String) : Exception(message)
+
     private val mutex = Mutex()
     private val _loadedModel: MutableStateFlow<ModelInfo?> = MutableStateFlow(null)
     val loadedModel: StateFlow<ModelInfo?> = _loadedModel
     private var llmService: LocalLlmService? = null
 
     suspend fun loadModel(modelInfo: ModelInfo) {
-        Log.i(
-            "LlmManager",
-            "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes"
-        )
-        LoadStatus.set(LoadStatus.Status.LOADING)
-
         mutex.withLock {
+            Log.i(
+                "LlmManager",
+                "Loading model: ${modelInfo.filename} from URI: ${modelInfo.uri}, size: ${modelInfo.size} bytes"
+            )
+
             if (loadedModel.value != null) {
-                throw IllegalStateException("A model is already loaded. Unload it before loading a new one.")
+                throw ModelAlreadyLoadedException("A model is already loaded. Unload it before loading a new one.")
             }
+
+            LoadStatus.set(LoadStatus.Status.LOADING)
 
             val service = LocalLlmService(context, modelInfo)
             service.load()
