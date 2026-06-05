@@ -29,7 +29,8 @@ import me.bluegecko.pixellm.ui.theme.PixeLLMTheme
 
 data class URIMetadata(
     val filename: String,
-    val size: Long
+    val size: Long,
+    val extension: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -91,6 +92,11 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
 
             val uriMetadata = getUriMetadata(context, uri)
 
+            if (uriMetadata != null && uriMetadata.extension != "litertlm") {
+                Log.e("SingleFilePicker", "Selected file does not have \".litertlm\" extension: ${uriMetadata.filename}")
+                return@rememberLauncherForActivityResult
+            }
+
             val intent = Intent(context, ServerService::class.java).apply {
                 action = "LOAD_MODEL"
                 putExtra("MODEL_URI", uri.toString())
@@ -122,11 +128,13 @@ fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
         val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
 
         if (cursor.moveToFirst()) {
-            val name = cursor.getString(nameIndex)
+            val rawName = cursor.getString(nameIndex)
+            val name = rawName
                 .replace("^[^a-zA-Z0-9]".toRegex(), "_")
                 .replace("[^a-zA-Z0-9._-]".toRegex(), "_")
             val size = cursor.getLong(sizeIndex)
-            URIMetadata(name, size)
+            val extension = rawName.substringAfterLast('.', missingDelimiterValue = "").takeIf { it.isNotBlank() }?.lowercase()
+            URIMetadata(name, size, extension ?: "")
         } else {
             null
         }
