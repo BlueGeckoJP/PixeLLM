@@ -10,28 +10,15 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
 import io.ktor.server.engine.EmbeddedServer
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.request.receiveText
-import io.ktor.server.response.respondText
-import io.ktor.server.response.respondTextWriter
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
 
 class ServerService : Service() {
     private lateinit var llmManager: LlmManager
@@ -39,7 +26,6 @@ class ServerService : Service() {
     private var loadDeferred: Deferred<Unit>? = null
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? =
         null
-    private val json = Json { ignoreUnknownKeys = true }
 
     override fun onCreate() {
         super.onCreate()
@@ -49,99 +35,11 @@ class ServerService : Service() {
         val app = application as PixeLLMApplication
         llmManager = app.llmManager
 
-        server = embeddedServer(CIO, port = 8080, host = "0.0.0.0") {
-            routing {
-                get("/health") {
-                    val status = when (LoadStatus.status.value) {
-                        LoadStatus.Status.UNLOADED -> "UNLOADED"
-                        LoadStatus.Status.LOADING -> "LOADING"
-                        LoadStatus.Status.HEALTHY -> "HEALTHY"
-                        LoadStatus.Status.FAILED -> "FAILED"
-                    }
-
-                    call.respondText(status)
-                }
-                post("/v1/chat/completions") {
-                    try {
-                        loadDeferred?.await()
-
-                        val rawRequest = call.receiveText()
-                        val request = json.decodeFromString<ChatCompletions>(rawRequest)
-                        val messages =
-                            request.messages.joinToString(separator = "\n") { "${it.role}: ${it.content.toString()}" }
-                        Log.d("ServerService", "Received raw request: $rawRequest")
-                        Log.d("ServerService", "Parsed object: $request")
-                        Log.d("ServerService", "Received prompt: $messages")
-                        val channel = Channel<String>(Channel.UNLIMITED)
-
-                        if (request.stream == false) {
-                            val response = llmManager.generate(messages)
-                            call.respondText(
-                                text = "data: {\"choices\":[{\"delta\":{\"content\":${Json.encodeToString(response)}}}]}\n\n",
-                                contentType = ContentType.Application.Json
-                            )
-                            return@post
-                        }
-
-                        call.respondTextWriter(ContentType.Text.EventStream) {
-                            val generationJob = launch {
-                                llmManager.generateAsync(messages, channel)
-                            }
-
-                            try {
-                                for (chunk in channel) {
-                                    write(
-                                        // @formatter:off
-                                        """data: {"choices":[{"delta":{"content":${Json.encodeToString(chunk)}}}]}""" + "\n\n"
-                                        // @formatter:on
-                                    )
-
-                                    flush()
-                                }
-
-                                write("data: [DONE]\n\n")
-                                flush()
-                            } finally {
-                                generationJob.cancel()
-                            }
-                        }
-                    } catch (e: Throwable) {
-                        Log.e("ServerService", "Error handling request", e)
-                        call.respondText(
-                            text = "Error: ${e.message}",
-                            status = HttpStatusCode.ServiceUnavailable
-                        )
-                    }
-                }
-                get("/v1/models") {
-                    val loadedModel = llmManager.loadedModel.value
-                    val modelObj = if (loadedModel == null) {
-                        ""
-                    } else {
-                        """
-                                    {
-                                        "id": "${loadedModel.filename}",
-                                        "object": "model",
-                                        "created": 0,
-                                        "owned_by": "local"
-                                    }
-                        """
-                    }
-
-                    call.respondText(
-                        text = """
-                            {
-                                "object": "list",
-                                "data": [
-                                    $modelObj
-                                ]
-                            }
-                        """,
-                        contentType = ContentType.Application.Json
-                    )
-                }
-            }
-        }.start(wait = false)
+        server = KtorServer.start(
+            port = 8080,
+            context = this,
+            getLoadDeferred = { loadDeferred }
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
