@@ -3,6 +3,7 @@ package me.bluegecko.pixellm
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -200,9 +201,23 @@ class ServerService : Service() {
             notificationChannel
         )
 
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification: Notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher).setContentTitle("PixeLLM server running")
-            .setContentText("Tap to open app").setOngoing(true).build()
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("PixeLLM server running")
+            .setContentText("Tap to open app")
+            .setContentIntent(openAppPendingIntent)
+            .setOngoing(true)
+            .build()
         startForeground(
             NOTIFICATION_ID,
             notification,
