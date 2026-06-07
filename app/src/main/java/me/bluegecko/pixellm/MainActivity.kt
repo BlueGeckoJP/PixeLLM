@@ -98,7 +98,10 @@ fun SingleFilePicker(context: Context, modifier: Modifier = Modifier) {
             }
 
             if (uriMetadata.extension != "litertlm") {
-                Log.e("SingleFilePicker", "Selected file does not have \".litertlm\" extension: ${uriMetadata.filename}")
+                Log.e(
+                    "SingleFilePicker",
+                    "Selected file does not have \".litertlm\" extension: ${uriMetadata.filename}"
+                )
                 return@rememberLauncherForActivityResult
             }
 
@@ -129,8 +132,10 @@ fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
             OpenableColumns.SIZE
         ), null, null, null
     )?.use { cursor ->
-        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it != -1 } ?: return@use null
-        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE).takeIf { it != -1 } ?: return@use null
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it != -1 }
+            ?: return@use null
+        val sizeIndex =
+            cursor.getColumnIndex(OpenableColumns.SIZE).takeIf { it != -1 } ?: return@use null
 
         if (cursor.moveToFirst()) {
             val rawName = cursor.getString(nameIndex)
@@ -138,7 +143,8 @@ fun getUriMetadata(context: Context, uri: Uri): URIMetadata? {
                 .replace("^[^a-zA-Z0-9]".toRegex(), "_")
                 .replace("[^a-zA-Z0-9._-]".toRegex(), "_")
             val size = cursor.getLong(sizeIndex)
-            val extension = rawName.substringAfterLast('.', missingDelimiterValue = "").takeIf { it.isNotBlank() }?.lowercase()
+            val extension = rawName.substringAfterLast('.', missingDelimiterValue = "")
+                .takeIf { it.isNotBlank() }?.lowercase()
             URIMetadata(name, size, extension ?: "")
         } else {
             null

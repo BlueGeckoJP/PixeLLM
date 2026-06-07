@@ -160,6 +160,7 @@ class ServerService : Service() {
                                 loadDeferred = null
                                 LoadStatus.Status.HEALTHY
                             }
+
                             else -> {
                                 Log.e("ServerService", "Failed to load model", cause)
                                 LoadStatus.Status.FAILED

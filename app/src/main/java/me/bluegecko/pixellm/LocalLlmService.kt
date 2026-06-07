@@ -85,7 +85,6 @@ class LocalLlmService(
 
     override fun close() {
         if (::engine.isInitialized) engine.close()
-
     }
 
     // Copy the model into app-private storage before loading it
