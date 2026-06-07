@@ -50,7 +50,7 @@ class ServerService : Service() {
                 val modelSize = intent.getLongExtra("MODEL_SIZE", -1L)
                 val modelUri = intent.getStringExtra("MODEL_URI")
                 if (modelUri != null) {
-                    loadDeferred = serviceScope.async {
+                    val currentDeferred = serviceScope.async {
                         llmManager.loadModel(
                             LlmManager.ModelInfo(
                                 filename = modelFilename,
@@ -59,8 +59,9 @@ class ServerService : Service() {
                             )
                         )
                     }
+                    loadDeferred = currentDeferred
 
-                    loadDeferred?.invokeOnCompletion { cause ->
+                    currentDeferred.invokeOnCompletion { cause ->
                         val status = when {
                             cause == null -> LoadStatus.Status.HEALTHY
                             cause is LlmManager.ModelAlreadyLoadedException -> {
@@ -76,6 +77,10 @@ class ServerService : Service() {
                         }
 
                         LoadStatus.set(status)
+
+                        if (currentDeferred == loadDeferred) {
+                            loadDeferred = null
+                        }
                     }
                 } else {
                     Log.e("ServerService", "MODEL_URI extra is missing in LOAD_MODEL intent")
