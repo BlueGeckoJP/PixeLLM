@@ -54,7 +54,7 @@ fun Route.chatRoutes(
 suspend fun handleNonStreamingResponse(call: RoutingCall, llmManager: LlmManager, prompt: String) {
     val response = llmManager.generate(prompt)
     call.respondText(
-        text = "data: {\"choices\":[{\"delta\":{\"content\":${Json.encodeToString(response)}}}]}\n\n",
+        text = "{\"choices\":[{\"message\":{\"content\":${Json.encodeToString(response)}}}]}\n\n",
         contentType = ContentType.Application.Json
     )
 }
