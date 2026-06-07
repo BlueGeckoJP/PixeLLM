@@ -83,6 +83,19 @@ class LocalLlmService(
             }
         }
 
+    suspend fun generate(prompt: String): String = withContext(Dispatchers.Default) {
+        mutex.withLock {
+            check(::engine.isInitialized) {
+                "Engine not initialized. Call load() before generating."
+            }
+
+            val conversation = engine.createConversation()
+            val response = conversation.sendMessage(prompt)
+            conversation.close()
+            return@withContext response.contents.toString()
+        }
+    }
+
     override fun close() {
         if (::engine.isInitialized) engine.close()
     }

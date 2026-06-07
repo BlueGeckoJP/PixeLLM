@@ -59,4 +59,9 @@ class LlmManager(private val context: Context) {
         service.generateAsync(prompt, channel)
     }
 
+    suspend fun generate(prompt: String): String {
+        val service = llmService
+            ?: throw IllegalStateException("No model loaded. Load a model before generating.")
+        return service.generate(prompt)
+    }
 }

@@ -74,6 +74,15 @@ class ServerService : Service() {
                         Log.d("ServerService", "Received prompt: $messages")
                         val channel = Channel<String>(Channel.UNLIMITED)
 
+                        if (request.stream == false) {
+                            val response = llmManager.generate(messages)
+                            call.respondText(
+                                text = "data: {\"choices\":[{\"delta\":{\"content\":${Json.encodeToString(response)}}}]}\n\n",
+                                contentType = ContentType.Application.Json
+                            )
+                            return@post
+                        }
+
                         call.respondTextWriter(ContentType.Text.EventStream) {
                             val generationJob = launch {
                                 llmManager.generateAsync(messages, channel)
