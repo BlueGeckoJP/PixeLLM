@@ -36,7 +36,8 @@ data class URIMetadata(
 
 class MainActivity : ComponentActivity() {
     private val requestNotificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()) {
+        ActivityResultContracts.RequestPermission()
+    ) {
         startServerService()
     }
 
