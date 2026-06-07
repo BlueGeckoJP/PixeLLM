@@ -3,6 +3,7 @@ package me.bluegecko.pixellm
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
@@ -34,12 +35,17 @@ data class URIMetadata(
 )
 
 class MainActivity : ComponentActivity() {
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()) {
+        startServerService()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val app = application as PixeLLMApplication
 
-        startForegroundService(Intent(this, ServerService::class.java))
+        requestNotificationPermissionThenStartService()
 
         enableEdgeToEdge()
         setContent {
@@ -52,6 +58,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun requestNotificationPermissionThenStartService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startServerService()
+        }
+    }
+
+    private fun startServerService() {
+        ContextCompat.startForegroundService(this, Intent(this, ServerService::class.java))
     }
 }
 
