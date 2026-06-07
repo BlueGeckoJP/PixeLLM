@@ -116,7 +116,7 @@ class ServerService : Service() {
                 get("/v1/models") {
                     val loadedModel = llmManager.loadedModel.value
                     val modelObj = if (loadedModel == null) {
-                        "{}"
+                        ""
                     } else {
                         """
                                     {
