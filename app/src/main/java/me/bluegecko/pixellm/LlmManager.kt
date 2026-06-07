@@ -7,14 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import me.bluegecko.pixellm.model.LoadStatus
+import me.bluegecko.pixellm.model.ModelInfo
 
 class LlmManager(private val context: Context) {
-    data class ModelInfo(
-        val filename: String,
-        val uri: String,
-        val size: Long
-    )
-
     class ModelAlreadyLoadedException(message: String) : Exception(message)
 
     private val mutex = Mutex()
@@ -33,7 +29,7 @@ class LlmManager(private val context: Context) {
                 throw ModelAlreadyLoadedException("A model is already loaded. Unload it before loading a new one.")
             }
 
-            LoadStatus.set(LoadStatus.Status.LOADING)
+            LoadStatusStore.set(LoadStatus.LOADING)
 
             val service = LocalLlmService(context, modelInfo)
             service.load()
@@ -49,7 +45,7 @@ class LlmManager(private val context: Context) {
             llmService?.close()
             llmService = null
             _loadedModel.value = null
-            LoadStatus.set(LoadStatus.Status.UNLOADED)
+            LoadStatusStore.set(LoadStatus.UNLOADED)
         }
     }
 

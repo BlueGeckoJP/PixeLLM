@@ -1,4 +1,4 @@
-package me.bluegecko.pixellm
+package me.bluegecko.pixellm.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

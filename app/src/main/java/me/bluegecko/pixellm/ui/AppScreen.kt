@@ -16,24 +16,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import me.bluegecko.pixellm.LoadStatus
+import me.bluegecko.pixellm.LoadStatusStore
 import me.bluegecko.pixellm.PixeLLMApplication
 import me.bluegecko.pixellm.ServerService
+import me.bluegecko.pixellm.model.LoadStatus
 import me.bluegecko.pixellm.util.readUriMetadata
 
 @Composable
 fun AppScreen(app: PixeLLMApplication, modifier: Modifier = Modifier) {
-    val status by LoadStatus.status.collectAsState()
+    val status by LoadStatusStore.status.collectAsState()
     val loadedModel by app.llmManager.loadedModel.collectAsState()
 
     Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize()) {
         Column {
             Text(
                 text = when (status) {
-                    LoadStatus.Status.UNLOADED -> "No model loaded."
-                    LoadStatus.Status.LOADING -> "Loading model..."
-                    LoadStatus.Status.HEALTHY -> "Model loaded successfully!"
-                    LoadStatus.Status.FAILED -> "Failed to load model."
+                    LoadStatus.UNLOADED -> "No model loaded."
+                    LoadStatus.LOADING -> "Loading model..."
+                    LoadStatus.HEALTHY -> "Model loaded successfully!"
+                    LoadStatus.FAILED -> "Failed to load model."
                 },
                 modifier = Modifier.padding(8.dp)
             )

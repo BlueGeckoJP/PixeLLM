@@ -17,11 +17,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import me.bluegecko.pixellm.model.ModelInfo
 import java.io.File
 
 class LocalLlmService(
     private val context: Context,
-    private val modelInfo: LlmManager.ModelInfo
+    private val modelInfo: ModelInfo
 ) : Closeable {
     private val mutex = Mutex()
     private lateinit var engine: Engine

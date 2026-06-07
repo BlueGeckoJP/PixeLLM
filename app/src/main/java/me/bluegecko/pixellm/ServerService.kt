@@ -19,6 +19,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import me.bluegecko.pixellm.model.LoadStatus
+import me.bluegecko.pixellm.model.ModelInfo
 
 class ServerService : Service() {
     private lateinit var llmManager: LlmManager
@@ -52,7 +54,7 @@ class ServerService : Service() {
                 if (modelUri != null) {
                     val currentDeferred = serviceScope.async {
                         llmManager.loadModel(
-                            LlmManager.ModelInfo(
+                            ModelInfo(
                                 filename = modelFilename,
                                 uri = modelUri,
                                 size = modelSize
@@ -63,20 +65,20 @@ class ServerService : Service() {
 
                     currentDeferred.invokeOnCompletion { cause ->
                         val status = when {
-                            cause == null -> LoadStatus.Status.HEALTHY
+                            cause == null -> LoadStatus.HEALTHY
                             cause is LlmManager.ModelAlreadyLoadedException -> {
                                 Log.w("ServerService", "Model already loaded", cause)
                                 loadDeferred = null
-                                LoadStatus.Status.HEALTHY
+                                LoadStatus.HEALTHY
                             }
 
                             else -> {
                                 Log.e("ServerService", "Failed to load model", cause)
-                                LoadStatus.Status.FAILED
+                                LoadStatus.FAILED
                             }
                         }
 
-                        LoadStatus.set(status)
+                        LoadStatusStore.set(status)
 
                         if (currentDeferred == loadDeferred) {
                             loadDeferred = null
